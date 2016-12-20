@@ -174,23 +174,26 @@ while(times< 9):
         pooled_outputs.append(h)
         times = times + 1  ## times = 9
 
+## shape [batch, length, heigth, depth]
 cnn_outputs = pooled_outputs[-1] 
+c_o_shape  = cnn_outputs.get_shape().as_list()
 ## reshape to [batch*length, height*depth]
-c_o_shape = tf.shape(cnn_outputs)
-cnn_outputs = tf.reshape(cnn_outputs, [c_o_shape[0]*c_o_shape[1], \
+cnn_outputs = tf.reshape(cnn_outputs, [-1, \
         c_o_shape[2]*c_o_shape[3]])
 
-W_fc1 = tf.variable(tf.truncated_normal([c_o_shape[2]*c_o_shape[3], \
-        n_classes], stddev=0.1))
-B_fc1 = tf.variable(tf.constant(0, shape=[n_classes]))
+print cnn_outputs
+W_fc1 = tf.Variable(tf.truncated_normal([c_o_shape[2]*c_o_shape[3], \
+        n_classes], stddev=0.1), dtype=tf.float32)
+B_fc1 = tf.Variable(tf.constant(0., shape=[n_classes]), dtype=tf.float32)
 
-## logits shape [batch*length, classes]
-logits = tf.matmul(cnn_outputs, W_fc1) + B_fc1
-## reshape to [batch, length, classes]
-logits = tf.reshape(logits, [c_o_shape[0], c_o_shape[1], n_classes])
 
-## transpose to [length, batch, classes] to fit the ctc_loss
-logits = tf.transpose(logits, [1, 0, 2])
+with tf.name_scope("logits"):
+    ## logits shape [batch*length, classes]
+    logits = tf.matmul(cnn_outputs, W_fc1) + B_fc1
+    ## reshape to [batch, length, classes]
+    logits = tf.reshape(logits, [-1, c_o_shape[1], n_classes])
+    ## transpose to [length, batch, classes] to fit the ctc_loss
+    logits = tf.transpose(logits, [1, 0, 2])
 
 cost = tf.reduce_mean(tf.nn.ctc_loss(y, logits, seq_len))
 optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
@@ -240,5 +243,3 @@ with tf.Session() as sess:
         step += 1
 print("Optimization Finished!")
 sess.close()
-
-
